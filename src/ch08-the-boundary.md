@@ -472,7 +472,7 @@ At the boundary, proof-carrying types behave like ordinary values — the functo
 
 | | Inherent impl | Trait impl | Proof-carrying type |
 |---|---|---|---|
-| **Proposition** | Unnamed implications | Named predicate | Existence of a value |
+| **Proposition** | 1. Unnamed implications | 2. Named predicate | 3. Existence of a type |
 | **Proof** | Method body | `impl` block | Guarded constructor |
 | **Level** | 0 (ground) | 2–3 (bounds + impls) | 0–4 (any level) |
 | **Referenceable in bounds?** | No | Yes | Indirectly (via trait bounds on the wrapper) |
