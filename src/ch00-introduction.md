@@ -145,7 +145,7 @@ The book follows the level structure upward through the type hierarchy, with thr
 - **Chapter 6: The Proof Domain (Level 3)** — `impl` blocks as witnesses, blanket impls as functors, coherence.
 - **Chapter 7: Type Constructors and GATs (Level 4)** — type-level functions, typestate, the limits of Rust's abstraction.
 
-**Chapter 8: The Boundary** examines the forgetful functor F: 𝒯 → 𝒱 in full depth — monomorphisation, dynamic dispatch, erasure, and the selective permeability of the membrane between compile time and runtime.
+**Chapter 8: The Boundary** examines the forgetful functor F: 𝒯 → 𝒱 in full depth — monomorphisation, dynamic dispatch, erasure, and the selective permeability of the membrane between compile time and runtime — and uses the boundary as a lens to unify the three proof mechanisms (inherent impls, trait impls, and proof-carrying types) introduced across the preceding chapters.
 
 **Chapter 9: Beyond Rust** places Rust in the landscape of type systems. It maps the full lambda cube, examines what dependent types and effect systems make possible, and reflects on Rust's design position as a principled choice within the space of possible type systems.
 

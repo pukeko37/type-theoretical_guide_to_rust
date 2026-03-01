@@ -2,9 +2,11 @@
 
 The previous five chapters ascended through the type category 𝒯 level by level — from concrete types at Level 0, through parametric polymorphism at Level 1, constrained generics at Level 2, proof witnesses at Level 3, to type constructors and GATs at Level 4. At each level, the boundary made a brief appearance: monomorphisation collapsed generic families, proof witnesses were consumed and inlined, phantom types were erased to zero bytes. But the boundary itself was never the subject. It was background — a transformation that happened between the chapter's type-level analysis and the generated machine code, acknowledged but not examined.
 
-This chapter makes the boundary the subject.
+This chapter makes the boundary the subject — and in doing so, makes it a lens through which the entire type system becomes visible from a single vantage point.
 
 The boundary is the forgetful functor F: 𝒯 → 𝒱 — the mapping from the type category to the value category. It is the mechanism by which Rust's compile-time structure is transformed into runtime behaviour. Every feature of Rust's type system, from newtypes to lifetimes, from blanket impls to typestate machines, passes through this mapping. What the functor preserves determines what Rust can do at runtime. What it erases determines what Rust gets for free.
+
+The boundary is also where structures that were introduced separately — in different chapters, at different levels — reveal their common shape. Inherent impls, trait impls, and proof-carrying phantom types were each presented as distinct mechanisms. Viewed from the boundary, they are three expressions of a single principle: compile-time proof that the forgetful functor erases for free. The boundary chapter is therefore both an analysis of the functor's mechanics and a synthesis of the proof system as a whole.
 
 Understanding the boundary precisely — what crosses it, what does not, what partly crosses it, and at what cost — is the key to understanding Rust's design as a whole. The boundary is not a line. It is a membrane with specific channels, each with its own direction, cost, and information capacity.
 
@@ -408,6 +410,78 @@ In 𝒱, every `Door<State>` is the same: a `String`. The lock/unlock transition
 | Level 4 | Maximum | Full erasure | Zero | Compile-time guarantees only |
 
 The trade-off is not linear. Higher altitude does not simply cost more. Levels 1–2 and Level 4 are *both* zero-cost — the boundary erases them completely. The cost appears only when the programmer requests runtime polymorphism via `dyn Trait`, which is the boundary's partial-projection mode. The choice of altitude is a choice about *where* the polymorphism lives: in 𝒯 (resolved at compile time, zero cost) or partly in 𝒱 (resolved at runtime, indirection cost).
+
+## Three Proof Mechanisms and the Boundary
+
+The preceding chapters introduced three distinct mechanisms by which Rust programs carry proof. Each mechanism operates at a different level, encodes a different class of proposition, and interacts with the boundary in a different way. But the chapters presented them separately — inherent impls in Chapter 3, trait impls in Chapter 6, phantom types in Chapter 7 — and never placed them side by side. The boundary is the right lens for unifying them, because the boundary is where their differences become concrete: each proof mechanism is defined, in part, by what the forgetful functor does to it.
+
+### Mechanism 1: Inherent Impl Blocks — Unnamed Implications
+
+Chapter 3 presented the inherent `impl` block as a ground proposition. Each method is a proof of an implication: `fn area(&self) -> f64` proves "given a `Circle`, an area exists." The impl block as a whole is a collection of such implications — a bundle of claims about what the type can do.
+
+These propositions are **unnamed**. There is no predicate, no trait, no label that other code can reference. You cannot write a bound `T: HasArea` based on the existence of an inherent `area` method. The propositions exist, and the proofs are valid, but they are invisible to the constraint system. They cannot participate in quantification.
+
+At the boundary, inherent methods survive as concrete functions in 𝒱 — specific sequences of machine instructions with specific calling conventions. The functor preserves their computational content fully. There is nothing to erase: no generics, no bounds, no proof witnesses. The methods were concrete in 𝒯 and remain concrete in 𝒱. Of the three mechanisms, this is the one the boundary touches least.
+
+### Mechanism 2: Trait Impl Blocks — Named Propositions
+
+Chapter 6 presented `impl Trait for Type` as a proof of a named proposition. The trait is the predicate; the impl is the proof term; the orphan rule ensures coherence. Unlike inherent methods, trait propositions are **named** — they can be referenced in bounds, enabling quantification. When a function signature says `T: Display`, it references the `Display` predicate by name, and the caller must supply a proof (an impl) that the predicate holds for their concrete type.
+
+The naming is what connects Level 2 (bounds as predicates) to Level 3 (impls as proofs). Without named propositions, there would be no way for a generic function to demand specific capabilities — it could only accept any `T` and do nothing with it (Level 1) or work with a specific concrete type (Level 0).
+
+At the boundary, trait impls are erased — but their computational content is preserved. Under monomorphisation, the functor resolves each trait method call to a concrete function call, inlines it, and discards the proof. Under dynamic dispatch, the proof survives partially as a vtable — a table of function pointers extracted from the impl. In either case, the logical structure (the fact that a predicate was satisfied) vanishes. Only the operational content (the code that runs) remains.
+
+### Mechanism 3: Proof-Carrying Types — Existence as Evidence
+
+The third mechanism is the most subtle: a type whose very existence constitutes proof that some property holds. This is not about what methods a type has, or what traits it satisfies, but about the fact that a value of that type could only have been constructed if certain conditions were met.
+
+Chapter 7 developed one version of this: typestate with `PhantomData`, where the phantom parameter encodes a verified property. `Connection<Authenticated>` carries no runtime evidence of authentication — the proof is the type itself. The only way to obtain a `Connection<Authenticated>` is through the `authenticate` method, which checks credentials and transitions the state. The type system ensures that no code path can produce an `Authenticated` connection without passing through the check.
+
+But the pattern is broader than typestate. Consider a newtype wrapper that certifies a runtime property:
+
+```rust
+/// A non-empty collection. The only way to construct this
+/// value is through `try_new`, which verifies non-emptiness.
+struct NonEmpty<T> {
+    items: Vec<T>,
+}
+
+impl<T> NonEmpty<T> {
+    fn try_new(items: Vec<T>) -> Option<Self> {
+        if items.is_empty() {
+            None
+        } else {
+            Some(NonEmpty { items })
+        }
+    }
+
+    /// Safe: the constructor guarantees at least one element.
+    fn first(&self) -> &T {
+        &self.items[0]
+    }
+}
+```
+
+Under Curry-Howard, `NonEmpty<T>` is not merely a conjunction (a `Vec<T>` and nothing else). It is a **proof-carrying type**: its existence is evidence that the contained vector is non-empty. The proof was established at construction time (the `try_new` check), and the type carries that proof forward through all subsequent code. Any function that receives a `NonEmpty<T>` can rely on non-emptiness without re-checking it — the type *is* the proof.
+
+This reading applies wherever construction is guarded by validation: `NonZero<u32>` in the standard library, domain types like `EmailAddress` or `PortNumber` that parse and validate on construction, the `Validated<T>` conjunction from Chapter 2 (which is simultaneously a product type *and* a proof witness — its existence certifies that validation passed). In each case, the proposition is: "this property was verified." The proof is: "a value of this type exists."
+
+At the boundary, proof-carrying types behave like ordinary values — the functor maps them to their runtime representation (a `Vec<T>`, a `u32`, a struct). The proof structure is erased entirely. In 𝒱, a `NonEmpty<Vec<i32>>` is indistinguishable from a `Vec<i32>`. The guarantee is real, but the evidence for it has vanished — consumed by the type checker, verified once, and discarded.
+
+### The Three Mechanisms Compared
+
+| | Inherent impl | Trait impl | Proof-carrying type |
+|---|---|---|---|
+| **Proposition** | Unnamed implications | Named predicate | Existence of a value |
+| **Proof** | Method body | `impl` block | Guarded constructor |
+| **Level** | 0 (ground) | 2–3 (bounds + impls) | 0–4 (any level) |
+| **Referenceable in bounds?** | No | Yes | Indirectly (via trait bounds on the wrapper) |
+| **Boundary action** | Methods survive as functions | Erased (monomorphised) or partial (vtable) | Type identity erased; value survives |
+| **Runtime cost of proof** | Zero | Zero (monomorphised) or indirection (dyn) | Zero (checked at construction) |
+
+The three mechanisms are complementary, and idiomatic Rust often combines them. The typestate pattern from Chapter 7 is a clear example: a phantom parameter carries the state proposition (Mechanism 3), state-specific inherent impls make methods conditionally available (Mechanism 1), and trait bounds on the state parameter can constrain which states support which operations (Mechanism 2). All three proof mechanisms operate simultaneously, at different levels of the type category, and the boundary erases all of them to the same concrete representation in 𝒱.
+
+The unifying principle is the boundary itself: Rust permits multiple forms of compile-time proof because the forgetful functor erases all of them equally. The richness of the proof system is possible precisely because it imposes no runtime cost. Whether the proof is a method body, an impl block, or the guarded construction of a value, the boundary discards the logical structure and preserves only the computation. The proofs are free, and so the language can afford to have many kinds.
 
 ## What the Boundary Cannot Cross
 

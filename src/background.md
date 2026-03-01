@@ -62,6 +62,6 @@ The book draws on three major traditions:
 
 ## How to Read This Book
 
-The chapters are ordered by ascending level in the model. Each chapter introduces the type-theoretical ideas at that level, shows their concrete expression in Rust, and articulates what this perspective reveals that the standard framing misses. The final two chapters zoom out: Chapter 8 examines the boundary between 𝒯 and 𝒱 in full detail, and Chapter 9 places Rust in the broader landscape of type systems.
+The chapters are ordered by ascending level in the model. Each chapter introduces the type-theoretical ideas at that level, shows their concrete expression in Rust, and articulates what this perspective reveals that the standard framing misses. The final two chapters zoom out: Chapter 8 examines the boundary between 𝒯 and 𝒱 in full detail and uses it as a lens to unify the proof mechanisms introduced across the preceding chapters, and Chapter 9 places Rust in the broader landscape of type systems.
 
 Readers comfortable with Rust's generics and trait system can begin at Chapter 0 and read straight through. Those wanting theoretical foundations first may prefer to begin with Chapter 1 (Background and Foundations) and Chapter 2 (Propositions as Types) before proceeding.
