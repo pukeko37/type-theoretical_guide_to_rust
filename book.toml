@@ -1,0 +1,13 @@
+[book]
+title = "Types as Propositions: A Type-Theoretical Guide to Rust"
+authors = ["Andrew Bowers"]
+language = "en"
+src = "src"
+description = "Rust's type system reframed from a type-theoretical perspective. Types are propositions, implementations are proofs, and writing well-typed Rust is an act of formal reasoning."
+
+[build]
+build-dir = "book"
+
+[output.html]
+git-repository-url = ""
+additional-css = []
