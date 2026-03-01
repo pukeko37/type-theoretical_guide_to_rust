@@ -74,12 +74,15 @@ mdbook serve  # optional: serves at http://localhost:3000
 
 ## Licence
 
-This work is dual-licensed under:
+The **prose content** of this book is licensed under the
+[Creative Commons Attribution 4.0 International License (CC BY 4.0)](LICENSE).
+
+The **code examples** contained in this book are dual-licensed under:
 
 - [MIT License](LICENSE-MIT)
 - [Apache License 2.0](LICENSE-APACHE)
 
-You may use this work under the terms of either licence, at your option.
+at your option.
 
 ## Author
 
