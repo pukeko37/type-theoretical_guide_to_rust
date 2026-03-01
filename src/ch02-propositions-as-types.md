@@ -561,7 +561,7 @@ When you design a function signature, you are writing a theorem statement. Ask y
 
 When you encounter a compiler error, read it as logical feedback:
 
-- "The trait bound `T: Ord` is not satisfied" means: "your argument lacks a necessary hypothesis."
+- "The trait bound `T: Ord` is not satisfied" means: "your argument lacks a necessary hypothesis proof term."
 - "Expected `Result<T, E>`, found `T`" means: "your conclusion claims certainty, but your proof goes through a fallible step."
 - "Cannot move out of borrowed content" means: "your proof of ownership is insufficient — you have a proof of borrowing, which is weaker."
 
