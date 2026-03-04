@@ -13,4 +13,6 @@
 [Chapter 6: The Proof Domain (Level 3)](./ch06-the-proof-domain.md)
 [Chapter 7: Type Constructors and GATs (Level 4)](./ch07-type-constructors-and-gats.md)
 [Chapter 8: The Boundary](./ch08-the-boundary.md)
-[Chapter 9: Beyond Rust](./ch09-beyond-rust.md)
+[Chapter 9: Domain Modelling as Proof Construction](./ch09-domain-modelling.md)
+[Chapter 10: Architecture as Category](./ch10-architecture-as-category.md)
+[Chapter 11: Beyond Rust](./ch11-beyond-rust.md)

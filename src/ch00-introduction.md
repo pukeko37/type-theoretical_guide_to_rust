@@ -62,7 +62,7 @@ The type category 𝒯 is not flat. It has internal structure — a hierarchy of
 
 **Level 4: Type Constructors and GATs.** The highest level Rust reaches. Here, types are not values or parameters but *functions on types*. `Vec` is not a type — it is a function that takes a type `T` and produces the type `Vec<T>`. Generic associated types (GATs) extend this further, allowing associated types to be parameterised by lifetimes or other type variables. Typestate patterns use `PhantomData` to encode state machines entirely within 𝒯, with zero runtime representation — the boundary erases them completely, leaving behind only the guarantee that the state transitions were valid.
 
-Beyond Level 4 lie territories that Rust does not enter: full dependent types (where arbitrary runtime values can appear in types), proof terms as first-class runtime values (where `impl` blocks can be passed as function arguments), and universe polymorphism (where you can quantify over the levels themselves). Chapter 9 maps this terrain and explains precisely where Rust's boundary lies and why.
+Beyond Level 4 lie territories that Rust does not enter: full dependent types (where arbitrary runtime values can appear in types), proof terms as first-class runtime values (where `impl` blocks can be passed as function arguments), and universe polymorphism (where you can quantify over the levels themselves). Chapter 11 maps this terrain and explains precisely where Rust's boundary lies and why.
 
 ## A Worked Example
 
@@ -147,7 +147,12 @@ The book follows the level structure upward through the type hierarchy, with thr
 
 **Chapter 8: The Boundary** examines the forgetful functor F: 𝒯 → 𝒱 in full depth — monomorphisation, dynamic dispatch, erasure, and the selective permeability of the membrane between compile time and runtime — and uses the boundary as a lens to unify the three proof mechanisms (inherent impls, trait impls, and proof-carrying types) introduced across the preceding chapters.
 
-**Chapter 9: Beyond Rust** places Rust in the landscape of type systems. It maps the full lambda cube, examines what dependent types and effect systems make possible, and reflects on Rust's design position as a principled choice within the space of possible type systems.
+**Chapters 9 and 10** are the applied synthesis — the practical payoff of the theoretical framework. They deploy all five levels against a single worked example (a procurement request system) and show how the type-theoretical vocabulary becomes a design instrument:
+
+- **Chapter 9: Domain Modelling as Proof Construction** — newtypes as proved invariants, trait ports as domain contracts, typestate lifecycles, error types as logical connectives, algebraic command and event flows.
+- **Chapter 10: Architecture as Category** — the ring topology as categorical structure, crate boundaries as proof scope, the `dyn` versus generic decision, composition roots, testing as alternative proof, and an anti-pattern catalogue diagnosed through the level model.
+
+**Chapter 11: Beyond Rust** places Rust in the landscape of type systems. It maps the full lambda cube, examines what dependent types and effect systems make possible, and reflects on Rust's design position as a principled choice within the space of possible type systems.
 
 ## How to Read This Book
 
@@ -159,7 +164,7 @@ That said, three reading paths suit different starting points:
 
 **The impatient path.** Start at Chapter 2 (Propositions as Types) for the core thesis, then skip to whichever level chapter addresses the Rust features you use most. Return to Chapter 1 for foundations when the later chapters reference concepts you want to understand more deeply.
 
-**The comparative path.** Read Chapters 1, 2, 8, and 9 — the framing chapters — for a high-level view of the model and Rust's position in the type-system landscape. Dip into the level chapters as case studies.
+**The comparative path.** Read Chapters 1, 2, 8, and 11 — the framing chapters — for a high-level view of the model and Rust's position in the type-system landscape. Read Chapters 9 and 10 for the applied synthesis. Dip into the level chapters as case studies.
 
 Whichever path you choose, Chapter 2 is the one chapter you should not skip. Everything else in the book is an elaboration of the correspondence it establishes.
 

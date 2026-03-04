@@ -1,6 +1,6 @@
 # Beyond Rust
 
-Rust occupies a specific position in the space of possible type systems. The preceding chapters have mapped that position from within — ascending through the five levels of 𝒯, examining the boundary's behaviour, tracing the forgetful functor's action on each kind of type-level structure. This final chapter maps the position from without, placing Rust in the broader landscape of type systems and exploring the territories it does not enter.
+Rust occupies a specific position in the space of possible type systems. The preceding chapters have mapped that position from within — ascending through the five levels of 𝒯, examining the boundary's behaviour, tracing the forgetful functor's action on each kind of type-level structure. The previous two chapters showed what those five levels can build in practice: domain models whose invariants are proved by construction and architectures whose ring boundaries are enforced by the type system. This chapter maps Rust's position from without, placing it in the broader landscape of type systems and exploring the territories it does not enter.
 
 The question is not "what is Rust missing?" Languages are not ranked on a linear scale of type-system sophistication. Rust's position is a *design choice* — a principled selection of features determined by the boundary's requirements. The question is: what does each region of the landscape offer, what does it cost, and why does Rust's boundary rule certain regions out?
 
