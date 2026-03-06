@@ -2,7 +2,26 @@
 
 The previous chapter constructed a domain core: newtypes with smart constructors, a typestate lifecycle, trait ports, error types, and algebraic data flows. The result is a collection of propositions proved by construction — but it exists in isolation. A domain core that cannot be wired to a database, exposed through an API, or tested in isolation is an academic exercise. This chapter shows how the two-category model turns architectural patterns into categorical structure.
 
-The onion architecture (equivalently, hexagonal architecture, ports-and-adapters) is the dominant pattern for structuring domain-centric systems. Its central rule — outer layers depend on inner layers, never the reverse — is typically justified by appeal to "clean separation of concerns." The two-category model provides a sharper justification: the dependency rule is isomorphic to the direction of the forgetful functor. The domain core lives high in 𝒯, defining propositions. Infrastructure lives close to 𝒱, providing concrete implementations. The functor F: 𝒯 → 𝒱 flows outward — from abstract to concrete, from proposition to proof to erased execution. The dependency rule is not a convention; it is a consequence of the categorical structure.
+Several named patterns compete for this architectural space — hexagonal architecture, onion architecture, ports-and-adapters, Clean Architecture — and practitioners hold strong opinions about the differences between them. Before mapping the architecture onto the two-category model, it is worth being explicit about what these patterns share, where they diverge, and what the type-theoretic view has to say about the disagreements.
+
+### Hexagonal, Onion, Clean: A Disambiguation
+
+Alistair Cockburn's **hexagonal architecture** (2005) draws a single boundary between "inside" (application logic) and "outside" (adapters), with symmetric *driving ports* (incoming) and *driven ports* (outgoing). It makes no commitment to concentric layers within the inside — only that the inside defines ports and the outside provides adapters. Jeffrey Palermo's **onion architecture** (2008) adds internal structure: concentric rings from domain model outward through domain services to application services, each depending only on the rings inside it. Robert C. Martin's **Clean Architecture** (2012) refines this further into four rings — entities, use cases, interface adapters, frameworks & drivers — and articulates a "Dependency Rule" as the governing principle.
+
+These patterns are not synonyms, but they share a common structural commitment: **dependencies point inward, from concrete to abstract.** The disagreements are about how many rings to draw and what vocabulary to use for each.
+
+| Pattern | Core Insight | Ring Count | Key Vocabulary |
+|---|---|---|---|
+| Hexagonal (Cockburn) | Inside/outside boundary, symmetric ports | 2 | Ports, adapters, driving, driven |
+| Onion (Palermo) | Concentric domain layers | 3–4 | Domain model, domain services, application services |
+| Clean (Martin) | Dependency Rule across four rings | 4 | Entities, use cases, interface adapters, frameworks |
+| **Type-theoretic (this book)** | **F: 𝒯 → 𝒱 determines dependency direction** | **Flexible** | **Propositions, proofs, boundary, functor** |
+
+The type-theoretic view subsumes all three. The dependency direction is not a design rule to be memorised — it is a consequence of the categorical structure. Propositions (traits, type constraints, domain invariants) live in 𝒯. Proofs (impl blocks, concrete types, infrastructure adapters) live closer to 𝒱. The forgetful functor F: 𝒯 → 𝒱 flows from abstract to concrete, from proposition to proof to erased execution. Any architecture that reverses this direction — making the domain depend on infrastructure — is asking a proposition to depend on its own proof, which is incoherent.
+
+This means the number of rings is a packaging decision, not a structural one. Two rings (hexagonal) or four rings (Clean) or five rings are all valid *if* the dependency direction is preserved. What matters is not the count but the invariant: propositions inward, proofs outward, and the functor flowing from 𝒯 to 𝒱. The rest of this chapter uses four rings because that granularity maps cleanly onto Rust's level hierarchy, but the principles apply equally to a two-ring hexagonal layout or a three-ring onion.
+
+Practitioners arriving from a Clean Architecture background will recognise the Dependency Rule as an instance of this functor direction. Those arriving from a hexagonal background will recognise the port/adapter split as the Level 2 / Level 3 boundary (traits vs impl blocks). The type-theoretic framing does not invalidate either tradition — it provides a formal justification for the structural commitment they share, and a diagnostic tool (the level hierarchy) for resolving the questions they leave open.
 
 ## The Ring Topology
 
@@ -78,6 +97,18 @@ pub fn create_draft(
 
 The function `create_draft` is generic over `impl RequestRepository`. It states a proposition: "given any proof of `RequestRepository`, I can create a draft and produce an event." The function does not know whether the repository is backed by PostgreSQL, an in-memory map, or a test fake. It operates at Level 2, working with the bound, not the concrete type.
 
+### Designing Port Traits
+
+A port trait is a proposition about an infrastructure capability. The design of that proposition — which Level 2 mechanisms it uses — determines how easy the trait is to implement, test, and compose. Chapters 5 and 7 derive the theoretical distinctions; here we state the architectural defaults.
+
+**Associated types are the default for ports.** A port trait almost always represents a functional dependency: one implementing type determines exactly one associated output. `RequestRepository` yields one `Error` type; an `EventBus` publishes one `Event` family. This is the functional-dependency pattern from Chapter 5 §5.4 — each implementor pins the associated type to a single concrete choice, and consumers work with the associated type abstractly. Type parameters on the trait (`trait Repository<E>`) would allow a single type to implement the trait multiple times with different error types, which is rarely the intent for a port. If a type genuinely needs to be a repository for multiple distinct entity families, that is usually better modelled as separate traits (`RequestRepository`, `InvoiceRepository`) rather than a single parameterised trait.
+
+**GATs are reserved for the lending and streaming cases.** A port needs a GAT only when its associated type must borrow from `&self` or vary with a lifetime — the lending iterator pattern from Chapter 7 §7.2. In architectural terms, this arises when a port must yield references into its own internal state (a connection-pool cursor, a memory-mapped slice, a streaming row set). If the port's methods return owned values or values that outlive the method call, a plain associated type suffices. Reaching for a GAT when an ordinary associated type would compile adds complexity to every implementor and every consumer for no structural gain.
+
+**Bound accumulation is a ring-topology signal.** Chapter 5 §5.3 noted that heavy bound propagation — a function requiring `R: RequestRepository + NotificationSender + AuditLogger + MetricsRecorder` — can indicate that the function is doing too much. In the ring topology, this diagnosis sharpens: a function in the application layer that accumulates many port bounds is spanning multiple domain capabilities in a single orchestration step. Each bound is a hypothesis the function depends on; too many hypotheses in one proof suggests the proof should be decomposed. The fix is usually to split the function into smaller use-case functions, each with a narrow bound set, composed at a higher level. The minimum-bounds principle from Chapter 5 applies directly: state only the hypotheses you use, and if you use many, ask whether the proof is really one proof or several.
+
+**Supertraits for structural prerequisites, not convenience bundles.** A supertrait bound (`trait Repository: Send + Sync`) is an implication: every proof of `Repository` must also be a proof of `Send + Sync`. This is appropriate when the supertrait is a genuine structural prerequisite — a repository that will be shared across async tasks *must* be thread-safe. It is inappropriate as a convenience mechanism to avoid writing bounds at call sites. Bundling `Debug + Clone + Serialize` as supertraits of a port trait forces every implementor to prove all three, even when the port's contract has nothing to do with serialisation. The supertrait should express the *minimal* structural requirement of the port itself, not the accumulated needs of its current consumers.
+
 ## Crate Topology as Proof Structure
 
 In Rust, the ring boundaries can be encoded as Cargo workspace crates. The Cargo dependency graph makes boundary violations mechanically detectable:
@@ -111,6 +142,31 @@ procurement-bin     →  procurement-domain, procurement-app, procurement-infra,
 ```
 
 The arrows flow outward: from abstract to concrete, from proposition to proof. No arrow points inward. The domain core is a source in the dependency graph — it has in-degree zero.
+
+### When Rings Collapse
+
+The four-crate workspace above is appropriate for a system with a rich domain, multiple infrastructure backends, and a team large enough to benefit from independent compilation boundaries. Not every system warrants this granularity. The *principle* — propositions inward, proofs outward — is invariant; the *packaging* should match the system's complexity.
+
+**Module boundaries instead of crate boundaries.** A single-crate system can encode the same ring structure using modules:
+
+```text
+src/
+├── domain/        (newtypes, traits, typestate, events)
+│   └── mod.rs
+├── app/           (generic orchestration, use-case functions)
+│   └── mod.rs
+├── infra/         (impl blocks, database adapters)
+│   └── mod.rs
+└── main.rs        (composition root)
+```
+
+The enforcement mechanism is weaker — Rust's visibility modifiers (`pub(crate)`, `pub(super)`) rather than Cargo's dependency graph — but the structure is the same. A `use crate::infra::*` in `domain/mod.rs` is a ring violation detectable by code review, and enforceable by a lint or CI check if desired.
+
+**Two rings instead of four.** For a small service with one or two ports, the application and infrastructure layers may contain so little code that separating them adds more navigational friction than it prevents. In that case, a two-ring structure — domain module and everything-else module — preserves the core invariant (domain depends on nothing) while avoiding empty abstraction layers.
+
+**No rings at all.** A CLI tool that parses arguments, does some computation, and prints output may have no meaningful domain/infrastructure split. Forcing the ring topology onto a 200-line programme is over-engineering. The type-theoretic principles still apply at the value level — newtypes, smart constructors, `Result` propagation — but the architectural packaging adds no value.
+
+The heuristic: separate crates when you need *independent compilation, publication, or team ownership* of the domain. Use modules when the system fits comfortably in a single crate. Use a flat file when the system fits comfortably in a single module. The functor direction is always the same; only the granularity of the boundary changes.
 
 ### Visibility as Proof Scope
 
@@ -191,6 +247,14 @@ The service is generic over `R`. At the composition root, `R` is resolved to a c
 
 The `dyn` alternative becomes appropriate if the system must support switching repository implementations at runtime — for instance, a multi-tenant system where different tenants use different storage backends. In that case, the deferred proof is justified: the runtime must carry enough information (the vtable) to dispatch correctly.
 
+### `dyn` at the Framework Edge
+
+In practice, Rust web frameworks often push towards `Arc<dyn Trait>` at the handler boundary. Frameworks like axum use type-erased shared state — a handler extracts `State<Arc<dyn RequestRepository>>` because the framework's router dispatches to handlers dynamically, and all handlers sharing a router must agree on a single state type. This is a *genuinely dynamic* context: the framework's routing model requires type erasure at the point where it stores and distributes shared state.
+
+The type-theoretic position is not that `dyn` is always wrong — it is that `dyn` should be *justified* by a genuinely dynamic context, and *confined* to the boundary where that dynamism exists. The framework edge is such a boundary. The mistake is propagating `dyn` inward from the framework edge through every service and helper, paying the cost of deferred proof in code that has no need for it.
+
+The principle: accept `dyn` at the framework boundary where the framework requires it; keep service and domain code generic over trait bounds. The framework boundary is a composition root — it is *where* the functor is applied, so the concrete/erased distinction is expected there. Inside the domain and application layers, generic dispatch preserves zero-cost abstraction and full compile-time proof checking.
+
 ## The Composition Root
 
 The composition root is where F: 𝒯 → 𝒱 is finally applied. All generic parameters are resolved. All trait bounds are discharged with concrete types. All type-level structure collapses into runtime execution.
@@ -217,6 +281,26 @@ The composition root is intentionally the thickest, least abstract, most concret
 This is not a design flaw — it is the design working correctly. The domain core is abstract (Level 2–4, pure 𝒯). The infrastructure layer provides proofs (Level 3, impl blocks). The composition root instantiates (Level 0, concrete types). The functor F acts at this point, collapsing the entire type-level architecture into a running program. After this point, no compile-time proof machinery is operating. The binary is pure 𝒱.
 
 The composition root is also the narrowest part of the system in terms of reuse: it is specific to one deployment configuration. A test harness is an alternative composition root, wiring different concrete types (in-memory repositories, stub services) against the same generic domain and application layers.
+
+### Dependency Inversion without a Container
+
+Practitioners arriving from Java, C#, or other managed-runtime ecosystems may expect a dependency injection (DI) container — a framework like Spring, Autofac, or Guice that discovers implementations at startup, resolves dependency graphs, and wires everything together at runtime. The composition root above performs the same logical function, but the mechanism is fundamentally different.
+
+A DI container resolves dependencies *at runtime*. It inspects type metadata (reflection, attributes, module scanning), matches interfaces to implementations, and constructs object graphs dynamically. This is a deferred proof: the container discovers at startup whether every required interface has an implementation. If a binding is missing, the error surfaces at runtime — often as a startup exception rather than a compile-time error.
+
+Rust's generic bounds achieve dependency *inversion* at compile time. There is no container; the compiler is the container. When `ProcurementService<R: RequestRepository>` is instantiated as `ProcurementService<PostgresRequestRepository>`, the compiler verifies that `PostgresRequestRepository` satisfies `RequestRepository` before emitting any code. If the proof is missing — no `impl RequestRepository for PostgresRequestRepository` — the programme does not compile. The wiring in `main.rs` is manual and explicit, but the proof obligation is discharged in 𝒯, not deferred to 𝒱.
+
+This is not an incidental implementation difference. It is the zero-cost abstraction property applied to architecture itself: the dependency graph is resolved at compile time and erased at runtime. The binary carries no reflection metadata, no container state, no startup resolution phase. The cost of abstraction is zero.
+
+### Cross-Cutting Concerns
+
+The ring topology cleanly separates domain, application, and infrastructure — but practitioners will immediately notice that some concerns do not fit neatly into any ring. Logging, tracing, and metrics cut across all layers. Where do they belong?
+
+In type-theoretic terms, cross-cutting concerns are *observations of proof execution*, not propositions or proofs themselves. They do not define domain invariants (propositions) or implement domain contracts (proofs) — they observe and record the act of proof discharge as it happens at runtime.
+
+Rust's tracing ecosystem already follows this structure. The `tracing` crate provides a facade: domain and application code emit spans and events (`tracing::info!`, `#[instrument]`), which are essentially propositions — "this operation occurred with these parameters." The concrete subscriber (a JSON logger, an OpenTelemetry exporter, a test subscriber that captures events for assertions) is an infrastructure proof, wired at the composition root. The domain crate depends on `tracing` — a lightweight, zero-cost facade with no infrastructure opinions — not on any specific subscriber implementation.
+
+This mirrors the `log` crate's design and generalises it. The facade is a Level 2 trait (a proposition about observability capability). The concrete logger or subscriber is a Level 3 proof. The composition root selects which proof to install. The domain core remains free of infrastructure dependencies, and the ring invariant is preserved.
 
 ## Testing as Alternative Proof
 
@@ -401,6 +485,21 @@ fn test_no_duplicates() {
 ```
 
 The same principle applies to the procurement service. The signature `fn find_request(&self, id: &RequestId) -> Result<Option<RequestSnapshot>, ProcurementError>` on `ProcurementService<R: RequestRepository>` tells us: the service can only return what the repository provides or a `ProcurementError`. It cannot fabricate request data. A property test can verify this — save a snapshot, retrieve it, confirm the result matches — and parametricity guarantees the property holds regardless of which `R` is supplied.
+
+## Programming Style as Altitude: A Decision Guide
+
+Chapter 8 introduced the idea of programming style as altitude — the choice of how high in the level hierarchy to operate for a given piece of code. The ring topology and the level hierarchy together provide a practical decision framework for the choices practitioners face daily. The following table summarises the key decision points:
+
+| Decision Point | Low Altitude (concrete, 𝒱-oriented) | High Altitude (abstract, 𝒯-oriented) | When to Choose High |
+|---|---|---|---|
+| Data representation | `String`, `u64`, `bool` | `RequestId(Uuid)`, `Amount(f64)` | Always for domain values — encoding propositions in 𝒯 is the book's central thesis |
+| Function parameter | `PostgresPool`, a concrete type | `impl Repository` / `R: Repository` | When more than one implementation exists or is anticipated (production + test counts) |
+| Error handling | `.unwrap()`, `String` errors | Domain error enum, `Result` propagation with `?` | Always in domain and application layers; `.unwrap()` is acceptable only in composition roots and tests where failure is truly unrecoverable |
+| Dispatch | `dyn Trait`, vtable indirection | Generic bounds, monomorphisation | When the concrete type is known at compile time and fixed for the programme's lifetime |
+| State machine | `status: String` + runtime match | Typestate with `PhantomData` | When invalid state transitions are a real risk and the state graph is small enough to enumerate |
+| Architecture | Flat module, no rings | Crate workspace with ring boundaries | When the domain is rich enough that independent compilation or team ownership of the domain core adds value |
+
+The altitude is not a quality judgement — low altitude is not "worse" than high altitude. A composition root *should* be low altitude: it names concrete types, calls constructors, and wires everything together. A domain core *should* be high altitude: it defines propositions that the rest of the system must satisfy. The anti-patterns in the next section are not cases of "too low" — they are cases of *mismatched* altitude, where code operates at a lower level than its role in the architecture demands.
 
 ## The Anti-Pattern Catalogue
 
