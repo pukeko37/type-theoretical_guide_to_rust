@@ -175,9 +175,9 @@ In 𝒱, `Token<ReadOnly>` and `Token<ReadWrite>` are identical: a single `u64`.
 
 PhantomData is the boundary's most extreme channel: maximum information in 𝒯, zero presence in 𝒱. It is the purest expression of zero-cost abstraction.
 
-### Const Generics: Values Crossing Upward
+### Const Generics: Value-Shaped Parameters in 𝒯
 
-Const generics are the boundary's only channel for information flowing *from* 𝒱 *into* 𝒯. A const generic parameter is a value — a scalar from the value domain — that appears in a type.
+Const generics allow 𝒯 to borrow the vocabulary of 𝒱. A const generic parameter has the *syntax* of a value — it is a `usize`, a `bool`, a `char` — but it is resolved entirely at compile time. No runtime information crosses upward; instead, 𝒯 gains the ability to speak about value-domain concepts (sizes, counts, flags) within its own phase.
 
 ```rust
 fn dot_product<const N: usize>(a: &[f64; N], b: &[f64; N]) -> f64 {
@@ -191,11 +191,13 @@ fn dot_product<const N: usize>(a: &[f64; N], b: &[f64; N]) -> f64 {
 }
 ```
 
-The parameter `N` is a `usize` — a value — but it appears in the type `[f64; N]`. This is the third axis of the lambda cube: types depending on terms. The value `N` crosses upward from 𝒱 into 𝒯, influencing type-level computation (the array size is part of the type).
+The parameter `N` is a `usize` — a scalar drawn from the value domain's vocabulary — but it lives and is resolved entirely within 𝒯. At the call site `dot_product::<3>`, the literal `3` is a compile-time constant that never existed at runtime first. The information flows *downward*: 𝒯 determines that the arrays have length 3, and monomorphisation bakes this into the generated code. The type `[f64; N]` constrains the shape of runtime values, which is 𝒯 → 𝒱, not the reverse.
 
-When F is applied, the const parameter collapses to a literal: `dot_product::<3>` becomes a function operating on `[f64; 3]`, with `N = 3` baked into the code as a constant. The parameter's journey is: born as a value, lifted into a type, and then lowered back into a concrete literal by monomorphisation.
+This is the third axis of the lambda cube — types depending on terms — but in Rust it operates entirely within the compile-time phase. The "terms" that types depend on are compile-time literals, not runtime values. You cannot read an integer from a file and use it as `N`. The boundary forbids it: true 𝒱 → 𝒯 flow would require evaluating runtime expressions during type checking, which would dissolve the phase distinction entirely.
 
-This is Rust's only dependent-type mechanism. It is heavily restricted: only scalar types can serve as const generic parameters, and type-level arithmetic on them requires nightly features. The restriction exists because the boundary demands that all type-level computation be resolvable at compile time. Arbitrary value-to-type dependencies would require evaluating runtime expressions during type checking — which would dissolve the boundary entirely.
+When F is applied, the const parameter collapses to a literal: `dot_product::<3>` becomes a function operating on `[f64; 3]`, with `N = 3` baked into the code as a constant. The parameter's full journey stays within 𝒯 until monomorphisation lowers it into 𝒱 as a concrete value — the same 𝒯 → 𝒱 direction as ordinary generic parameters.
+
+This is Rust's only dependent-type mechanism, and its restriction to compile-time-known scalars is not an implementation shortcoming but a direct consequence of maintaining the boundary. Arbitrary value-to-type dependencies would require the type checker to evaluate runtime expressions — which would erase the distinction between 𝒯 and 𝒱 altogether.
 
 ### TypeId: A Narrow Read-Only Channel
 
@@ -224,7 +226,7 @@ These four mechanisms, together with monomorphisation itself, form a spectrum of
 | Mechanism | Direction | Information preserved | Runtime cost |
 |---|---|---|---|
 | `PhantomData<T>` | 𝒯 only | Full type-level structure | Zero |
-| Const generics | 𝒱 → 𝒯 | Scalar values in types | Zero (monomorphised) |
+| Const generics | 𝒯 → 𝒱 (value-shaped params) | Scalar literals in types | Zero (monomorphised) |
 | `TypeId` | 𝒯 → 𝒱 (read-only) | Type identity only | Minimal (hash comparison) |
 | `dyn Trait` | 𝒯 → 𝒱 (partial) | Method implementations | Vtable pointer + indirect call |
 | Monomorphisation | 𝒯 → 𝒱 (full erasure) | Computational content only | Zero overhead, code size cost |
@@ -297,7 +299,7 @@ The modal framing clarifies several features of the boundary:
 
 **Lifetimes are current-world proofs about the future world.** When you annotate a function with lifetime `'a`, you are asserting (in the current world, at compile time) that a reference will be valid during a region of execution in the future world (at runtime). The borrow checker verifies this assertion in the current world. The assertion is then erased — it was about the future world, but the future world does not need to check it again. The proof has already been established.
 
-**Const generics are future-world values pulled into the current world.** A const generic `N: usize` takes a value that would normally be a future-world entity (a runtime integer) and lifts it into the current world (a type-level parameter). This is the possibility operator's limited inverse: ◇-information (a runtime value) is made into □-information (a compile-time constant) by restricting it to values that can be determined statically.
+**Const generics let the current world speak in the future world's vocabulary.** A const generic `N: usize` is a current-world (compile-time) parameter that uses the future world's scalar language — integers, booleans, characters. It is □-information throughout: necessarily determined before the program runs. The parameter *looks* like a future-world entity (a runtime integer) but never was one. It is the current world borrowing the future world's notation to express constraints — such as array sizes — that will govern the future world's values. The flow is from □ to ◇ (current world constraining the future world), not the reverse.
 
 **`dyn Trait` is □-information about the future world.** A vtable is a compile-time decision (which methods to include, how to lay them out) that persists into the future world as a data structure. It is necessarily true (□) that the vtable contains the correct function pointers — this was verified at compile time and cannot change at runtime.
 
@@ -489,7 +491,7 @@ Some information is structurally unable to cross the boundary in either directio
 
 **Types cannot cross downward as values** (except via TypeId). You cannot pattern-match on a type at runtime, cannot branch on whether `T` is `i32` or `String`, cannot dispatch based on type identity. Types are 𝒯-only entities. (The `Any` trait provides a narrow exception via downcasting, but this is a controlled escape hatch, not a general mechanism.)
 
-**Runtime values cannot cross upward into types** (except via const generics). You cannot use a runtime integer as an array size, a runtime string as a type name, or a runtime boolean as a type-level condition. The type system is closed before the program runs.
+**Runtime values cannot cross upward into types.** You cannot use a runtime integer as an array size, a runtime string as a type name, or a runtime boolean as a type-level condition. The type system is closed before the program runs. Const generics may appear to be an exception — they use value-domain syntax (`usize`, `bool`) in type position — but their parameters are compile-time literals, not runtime values. The vocabulary is borrowed from 𝒱; the information never was in 𝒱.
 
 **Proofs cannot cross downward as data** (except via vtables). You cannot store an `impl Ord for T` in a variable, pass it as a function argument, or inspect it at runtime. Proofs are 𝒯-only entities that are consumed during compilation.
 
