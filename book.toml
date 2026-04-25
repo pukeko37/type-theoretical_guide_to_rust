@@ -1,5 +1,5 @@
 [book]
-title = "Types as Propositions: A Type-Theoretical Guide to Rust"
+title = "A Type-Theoretical Guide to Rust"
 authors = ["Andrew Bowers"]
 language = "en"
 src = "src"
@@ -10,4 +10,4 @@ build-dir = "book"
 
 [output.html]
 git-repository-url = ""
-additional-css = []
+additional-css = ["src/custom.css"]

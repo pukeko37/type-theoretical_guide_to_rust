@@ -1,41 +1,38 @@
-# Types as Propositions: A Type-Theoretical Guide to Rust
+# A Type-Theoretical Guide to Rust
 
 **[Read the book online](https://pukeko37.github.io/type-theoretical_guide_to_rust/)**
 
 ## About
 
-Rust's type system is one of the most sophisticated realisations of the
-Curry-Howard correspondence available in a production programming language.
-When you write a generic function with trait bounds, you are not merely
-describing what operations you need -- you are making a formal statement about
-the structure of your problem, and the compiler is checking whether that
-statement is logically consistent. Types are propositions. Implementations are
-proofs. Writing well-typed Rust is an act of formal reasoning.
+Rust's type system is not just a safety net -- it is a design tool. This book
+develops a formal model that reveals the structure behind traits, bounds,
+lifetimes, and generics, showing why they were designed the way they were and
+how they fit together as a coherent whole. Understanding that structure changes
+the way you write Rust: from working around the compiler to designing with it,
+and from reaching for familiar patterns to exploring the full reach of what the
+type system makes possible.
 
-This book develops that idea from first principles. It introduces a two-category
-model -- a compile-time *type category* (T) where abstract reasoning lives, and
-a runtime *value category* (V) where concrete computation happens -- connected
-by a *forgetful functor* that erases type-level structure without adding runtime
-overhead. This boundary is the formal content of Rust's founding principle of
-zero-cost abstraction: arbitrarily sophisticated structure above the boundary,
-zero weight below it.
+The book introduces a two-category model -- a compile-time *type category*
+(𝒯) where abstract reasoning lives, and a runtime *value category* (𝒱) where
+concrete computation happens -- connected by a *forgetful functor* that erases
+type-level structure without adding runtime overhead. This boundary is the
+formal content of Rust's founding principle of zero-cost abstraction:
+arbitrarily sophisticated structure above the boundary, zero weight below it.
 
 Within the type category, the book identifies five levels of increasing
 abstraction. Level 0 covers concrete types with no parameters. Level 1
-introduces unconstrained generics and Reynolds' parametricity theorem. Level 2
-adds trait bounds as logical predicates, forming a constraint lattice. Level 3
-treats `impl` blocks as proof objects and blanket implementations as proof
-constructors, with the orphan rule as a coherence condition. Level 4 reaches
-type constructors and GATs -- functions on types themselves. Each level expands
-the propositions that can be stated and proved, while the boundary guarantees
-that every abstraction compiles away.
+introduces unconstrained generics and parametricity. Level 2 adds trait bounds
+as logical predicates, forming a constraint lattice. Level 3 treats `impl`
+blocks as proof objects and blanket implementations as proof constructors.
+Level 4 reaches type constructors and GATs -- functions on types themselves.
 
-The final chapters examine the boundary itself as a design centre, comparing
-Rust's selective erasure with Haskell's dictionary passing, Java's boxing, and
-the full dependent types of Idris and Coq. The book closes by mapping the
-territory beyond Rust -- effect types, session types, universe polymorphism --
-to show precisely where Rust stands in the landscape of typed languages and why
-its particular trade-offs are principled.
+The later chapters put the model to work: Chapter 8 examines the boundary
+between compile-time and runtime in full detail. Chapters 9 and 10 apply the
+framework to domain modelling and software architecture, showing how the type
+system shapes practical design decisions. Chapter 11 places Rust in the broader
+landscape of typed languages -- effect types, session types, dependent types,
+universe polymorphism -- to show precisely where Rust stands and why its
+particular trade-offs are principled.
 
 ## Audience
 
@@ -60,7 +57,9 @@ Curry-Howard ideas applied in a systems language.
 6. **The Proof Domain (Level 3)** -- Impl category, blanket impls, orphan rule, proof erasure
 7. **Type Constructors and GATs (Level 4)** -- Type-level functions, typestate, HKT gap
 8. **The Boundary** -- Forgetful functor, monomorphisation, dyn Trait, permeability spectrum
-9. **Beyond Rust** -- Effect types, session types, dependent types, universe polymorphism
+9. **Domain Modelling as Proof Construction** -- Smart constructors, typestate lifecycle, algebraic data flows
+10. **Architecture as Category** -- Crate topology, composition root, testing as alternative proof
+11. **Beyond Rust** -- Effect types, session types, dependent types, universe polymorphism
 
 ## Building
 
